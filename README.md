@@ -67,7 +67,7 @@ Can be imported into Swagger UI, Postman, or any OpenAPI tool.
 
 ### 3. Understand the Vision
 
-See: [Why We Built UTP](./docs/why-utp.md)
+See: [Why We Built UTP](./why-utp.md)
 
 Explains the problem, existing solutions, and how UTP is different.
 

@@ -54,17 +54,23 @@ AI agents don't behave that way. An agent's understanding of what it's allowed t
 
 ### 1. Read the Specification
 
-Start here: /SPEC.md
+Start here: [Full UTP Specification v1.0](./SPEC.md)
 
 Takes ~30 minutes to understand the core concepts.
 
 ### 2. Explore the API
 
-Review the OpenAPI spec: [Gateway API v1.0](./UTP_Gateway_API_v1.yaml)
+Review the OpenAPI spec: [Gateway API v1.0](./docs/api.yaml)
 
 Can be imported into Swagger UI, Postman, or any OpenAPI tool.
 
-### 3. See It In Action
+### 3. Understand the Vision
+
+See: [Why We Built UTP](./docs/why-utp.md)
+
+Explains the problem, existing solutions, and how UTP is different.
+
+### 4. See It In Action
 
 Financial domain example:
 ```json
@@ -103,9 +109,6 @@ Response:
   "enforcement": {
     "enforceStrictScope": true,
     "maskSensitiveFields": false
-  },
-  "utAuthRecord": {
-    // Full audit trail with all stage findings
   }
 }
 ```
@@ -158,17 +161,19 @@ UTP supports multiple regulated domains. Each domain defines:
 - **Enforcement Rules** — Validation, masking, escalation policies
 - **Fallback Actions** — Default behavior when uncertain
 
-### Proposed Profiles (in progress)
+### Coming Domains
 
-- **FIN** (Financial Services)
-- **HLT** (Healthcare)
-- **LGL** (Legal) 
-- **TRV** (Travel)
-- **INS** (Insurance)
-- **RET** (Retail / e-Commerce)
-- **EMP** (Employment / HR)
-- **TAX** (Tax / Compliance)
-- **EDU** (Education)
+- **FIN** (Financial Services) — Production-ready
+- **HLT** (Healthcare) — In progress
+- **LGL** (Legal) — In progress
+- **TRV** (Travel) — Planned
+- **INS** (Insurance) — Planned
+- **RET** (Retail / e-Commerce) — Planned
+- **EMP** (Employment / HR) — Planned
+- **TAX** (Tax / Compliance) — Planned
+- **EDU** (Education) — Planned
+
+Interested in defining a domain? [Open an issue](https://github.com/utp-foundation/utp-spec/issues) or [contribute](./CONTRIBUTING.md).
 
 ---
 
@@ -180,7 +185,7 @@ UTP supports multiple regulated domains. Each domain defines:
 
 - Language: Node.js + TypeScript
 - Status: Production (v1.0.0)
-- Repo: [utp-gateway](https://github.com/utp-foundation/utp-gateway)
+- Repo: [utp-foundation/utp-gateway](https://github.com/utp-foundation/utp-gateway)
 - Deploy: Docker, Kubernetes, AWS Lambda
 
 ### Known Implementations
@@ -270,6 +275,8 @@ This project is licensed under the **Apache License 2.0**. You are free to:
 - Modify UTP for your needs
 - Distribute UTP (with attribution)
 
+See [LICENSE](./LICENSE) for full details.
+
 ---
 
 ## Roadmap
@@ -323,7 +330,7 @@ Excellent. The waterfall architecture is designed for this. You can replace S1E 
 
 ## Contact & Community
 
-- **GitHub Discussions** — Ask questions, share ideas: [utp-foundation/discussions](https://github.com/utp-foundation)
+- **GitHub Discussions** — Ask questions, share ideas: [utp-foundation/discussions](https://github.com/utp-foundation/utp-spec/discussions)
 - **Email** — hello@utp.io
 - **Standards Bodies** — input@financialdataexchange.org (FDX)
 - **Website** — https://utp.io
@@ -355,4 +362,3 @@ UTP was conceived and first implemented by iCOA Labs in collaboration with the F
 ---
 
 **Status: Actively Maintained | Last Updated: July 2026**
-

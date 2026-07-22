@@ -158,14 +158,11 @@ UTP supports multiple regulated domains. Each domain defines:
 - **Enforcement Rules** — Validation, masking, escalation policies
 - **Fallback Actions** — Default behavior when uncertain
 
-### Published Profiles
-
-- **FIN** (Financial Services) — [Profile](./domains/FIN.md)
-- **HLT** (Healthcare) — [Profile](./domains/HLT.md)
-- **LGL** (Legal) — [Profile](./domains/LGL.md)
-
 ### Proposed Profiles (in progress)
 
+- **FIN** (Financial Services)
+- **HLT** (Healthcare)
+- **LGL** (Legal) 
 - **TRV** (Travel)
 - **INS** (Insurance)
 - **RET** (Retail / e-Commerce)

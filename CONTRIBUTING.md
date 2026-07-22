@@ -17,7 +17,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/utp-foundation/u
 
 ### 2. **Join the Discussion**
 
-Have questions or want to discuss UTP? [Start a discussion](https://github.com/utp-foundation/utp-spec/discussions).
+Have questions or want to discuss UTP? [Start a discussion](https://github.com/utp-foundation/utp-foundation/discussions).
 
 - Ask questions
 - Share your implementation

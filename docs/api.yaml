@@ -1,0 +1,852 @@
+openapi: 3.0.0
+info:
+  title: Universal Transfer Protocol (UTP) Agent Authorization Gateway
+  description: |
+    The UTP Gateway API enables agents to request bounded authorization for accessing regulated data.
+    Every authorization decision is auditable, deterministic, and includes a full cryptographic audit trail.
+    
+    This API implements the Universal Transfer Protocol (UTP) specification v1.0.
+    See https://utp.io/spec for full details.
+  version: 1.0.0
+  contact:
+    name: UTP Foundation
+    url: https://utp.io
+    email: support@utp.io
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: https://api.utp.io/v1
+    description: Production Gateway
+  - url: https://staging.utp.io/v1
+    description: Staging/Testing Gateway
+  - url: http://localhost:3000/v1
+    description: Local Development
+
+tags:
+  - name: Authorization
+    description: Request and manage agent authorization
+  - name: Audit
+    description: Query authorization audit logs
+  - name: Policy
+    description: Manage authorization policies
+  - name: Agent Registry
+    description: Query agent identity and trust
+
+paths:
+  /authorize:
+    post:
+      tags:
+        - Authorization
+      summary: Request agent authorization for bounded data access
+      description: |
+        Submit an authorization request from an agent. The Gateway evaluates the request
+        through the UTP waterfall (9 stages), returns a decision, and issues a cryptographically
+        sealed authorization record.
+        
+        The response includes:
+        - **decision:** approved, denied, or escalated
+        - **signalQuality:** ruled, rich, standard, or degraded
+        - **utpCode:** 6-segment identity code (UTP-[DOMAIN]-[CONTEXT]-[S1]-[S2]-[ACTION])
+        - **overallConfidence:** 0-100 confidence score
+        - **utAuthRecord:** Full audit trail with all stage evaluator findings
+        - **enforcement:** Specific constraints to enforce on data access
+      operationId: requestAuthorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizationRequest'
+            examples:
+              financeReadRequest:
+                summary: Fintech requesting transaction history
+                value:
+                  domain: FIN
+                  requestor:
+                    agentId: "fintech-credit-scorer-v3"
+                    agentOperator: "acme-fintech@example.com"
+                    humanPrincipal: "john.doe@acme.com"
+                    requestorType: agent
+                  dataSubject:
+                    subjectId: "customer-12345"
+                    subjectType: individual
+                  scope:
+                    dataElements:
+                      - transaction_date
+                      - amount
+                      - merchant_category
+                      - balance
+                    actions:
+                      - READ
+                      - QUERY
+                    duration:
+                      durationDays: 90
+                    readOnly: true
+                  signals:
+                    signal1: "7372"  # MCC for professional services
+                    signal2: "SALA"  # ISO purpose: salary/payroll
+                    
+              healthcareReadRequest:
+                summary: Care coordinator bot requesting patient labs
+                value:
+                  domain: HLT
+                  requestor:
+                    agentId: "care-coordinator-v1"
+                    agentOperator: "compliance@healthsystem.org"
+                    humanPrincipal: "nurse.alice@healthsystem.org"
+                    requestorType: agent
+                  dataSubject:
+                    subjectId: "patient-98765"
+                    subjectType: individual
+                  scope:
+                    dataElements:
+                      - lab_results
+                      - test_dates
+                      - provider_notes
+                    actions:
+                      - READ
+                    duration:
+                      durationDays: 30
+                    readOnly: true
+                  signals:
+                    signal1: "LAB"  # Lab results
+                    signal2: "TREA"  # Treatment purpose
+                    
+              degradedSignalRequest:
+                summary: Request with minimal signal (will likely trigger fallback)
+                value:
+                  domain: FIN
+                  requestor:
+                    agentId: "unknown-agent"
+                    agentOperator: "unknown@example.com"
+                    requestorType: agent
+                  dataSubject:
+                    subjectId: "customer-xyz"
+                    subjectType: individual
+                  scope:
+                    dataElements:
+                      - all
+                    actions:
+                      - READ
+                      - WRITE
+                    duration:
+                      durationDays: 365
+                    readOnly: false
+                  signals:
+                    signal1: null
+                    signal2: null
+      responses:
+        "200":
+          description: Authorization decision rendered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+              examples:
+                richSignalApproved:
+                  summary: Rich signal (primary + secondary) - Approved
+                  value:
+                    requestId: "req-2026-07-20-001"
+                    decision: approved
+                    signalQuality: rich
+                    utpCode: "UTP-FIN-541219-7372-SALA-READ"
+                    overallConfidence: 94
+                    authorizedActions:
+                      - READ
+                      - QUERY
+                    scope:
+                      dataElements:
+                        - transaction_date
+                        - amount
+                        - merchant_category
+                      duration:
+                        startsAt: "2026-07-20T14:32:00Z"
+                        expiresAt: "2026-10-18T14:32:00Z"
+                      readOnly: true
+                    enforcement:
+                      enforceStrictScope: true
+                      maskSensitiveFields: false
+                      escalateOnViolation: false
+                      requireHumanApproval: false
+                    authorizationToken: "auth-token-xxx-signed-jwt"
+                    utAuthRecord:
+                      orchestratorId: "ORK-FIN-2026-001"
+                      orchestratorVersion: "1.0.0"
+                      authorizationTimestamp: "2026-07-20T14:32:15Z"
+                      decision: approved
+                      signalQuality: rich
+                      stageResolved: 1
+                      overallConfidence: 94
+                      base:
+                        stage: 0
+                        ruleMatched: false
+                        confidence: 0
+                      s1e:
+                        stage: 1
+                        signalFound: true
+                        confidence: 98
+                      s2e:
+                        stage: 2
+                        signalFound: true
+                        confidence: 92
+                      ca:
+                        weightedScore: 94
+                    auditLog:
+                      - timestamp: "2026-07-20T14:32:15Z"
+                        event: "AUTHORIZATION_REQUESTED"
+                        actor: "fintech-credit-scorer-v3"
+                      - timestamp: "2026-07-20T14:32:15Z"
+                        event: "STAGES_EVALUATED"
+                        details:
+                          stagesRun: [0, 1, 2, 3, 4, 5, 6, 7]
+                      - timestamp: "2026-07-20T14:32:16Z"
+                        event: "DECISION_RENDERED"
+                        details:
+                          decision: approved
+                          confidence: 94
+                          
+                degradedSignalEscalated:
+                  summary: Degraded signal (minimal context) - Escalated to human
+                  value:
+                    requestId: "req-2026-07-20-002"
+                    decision: escalated
+                    signalQuality: degraded
+                    utpCode: "UTP-GEN-000000-NULL-NULL-OTH"
+                    overallConfidence: 35
+                    authorizedActions: []
+                    scope:
+                      dataElements: []
+                      readOnly: true
+                    enforcement:
+                      enforceStrictScope: true
+                      maskSensitiveFields: true
+                      escalateOnViolation: true
+                      requireHumanApproval: true
+                      escalationContacts:
+                        - "compliance@bank.org"
+                        - "security@bank.org"
+                    fallbackReason: "Insufficient signal confidence; cannot determine agent trust level"
+                    utAuthRecord:
+                      orchestratorId: "ORK-FIN-2026-001"
+                      decision: escalated
+                      signalQuality: degraded
+                      stageResolved: 8
+                      overallConfidence: 35
+                      fbh:
+                        fallbackTriggered: true
+                        fallbackReason: "Low overall confidence (35% < threshold 60%)"
+                        fallbackAction: "DEFAULT_DENY_WITH_ESCALATION"
+                    escalationId: "esc-2026-07-20-xyz"
+                    escalationContacts:
+                      - email: "compliance@bank.org"
+                        role: "data_compliance_officer"
+                      - email: "security@bank.org"
+                        role: "security_engineer"
+                    humanReviewRequired: true
+                    humanReviewDeadline: "2026-07-20T18:32:16Z"
+                    
+        "400":
+          description: Invalid request (missing required fields, malformed schema)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "INVALID_REQUEST"
+                message: "Missing required field: requestor.agentId"
+                details:
+                  missingFields:
+                    - "requestor.agentId"
+                    
+        "401":
+          description: Unauthorized (invalid or missing API key/auth header)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid API key or missing Authorization header"
+                
+        "403":
+          description: Forbidden (caller not authorized to request for this data subject or domain)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "Requestor not authorized to access data subject customer-12345 in FIN domain"
+                
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "RATE_LIMIT_EXCEEDED"
+                message: "Too many authorization requests. Limit: 1000/hour"
+                retryAfter: 3600
+                
+        "500":
+          description: Server error (gateway failure, orchestrator crash)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "INTERNAL_SERVER_ERROR"
+                message: "Orchestrator crashed during Stage 4 evaluation"
+                requestId: "req-2026-07-20-001"
+
+  /audit/{requestId}:
+    get:
+      tags:
+        - Audit
+      summary: Retrieve full audit trail for an authorization decision
+      description: |
+        Get the complete UTP Authorization Record (UTAuth) for a specific authorization request.
+        Includes all stage evaluator findings, agent identities, timestamps, and cryptographic seals.
+        
+        Only authorized callers (the requestor, the data subject, or the data provider) can retrieve.
+      operationId: getAuditRecord
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "req-2026-07-20-001"
+      responses:
+        "200":
+          description: Audit record found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UTAuthRecord'
+        "404":
+          description: Authorization request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Caller not authorized to view this audit record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /audit:
+    get:
+      tags:
+        - Audit
+      summary: Query authorization audit logs (with filtering)
+      description: |
+        Search across authorization decisions with optional filtering.
+        Useful for compliance audits, anomaly detection, and post-incident investigation.
+      operationId: queryAuditLogs
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+          description: Filter by requesting agent ID
+        - name: dataSubjectId
+          in: query
+          schema:
+            type: string
+          description: Filter by data subject ID
+        - name: domain
+          in: query
+          schema:
+            type: string
+          enum: [FIN, HLT, LGL, TRV, INS, RET, EMP, TAX, EDU, GEN]
+          description: Filter by domain
+        - name: decision
+          in: query
+          schema:
+            type: string
+            enum: [approved, denied, escalated]
+          description: Filter by authorization decision
+        - name: signalQuality
+          in: query
+          schema:
+            type: string
+            enum: [ruled, rich, standard, degraded]
+          description: Filter by signal quality tier
+        - name: startTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter by authorization timestamp (ISO 8601)
+        - name: endTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter by authorization timestamp (ISO 8601)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+          description: Max results to return
+      responses:
+        "200":
+          description: Audit logs matching filters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLogEntry'
+
+  /policies:
+    get:
+      tags:
+        - Policy
+      summary: List authorization policies
+      description: Get policies defined for your organization
+      operationId: listPolicies
+      responses:
+        "200":
+          description: Policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorizationPolicy'
+
+    post:
+      tags:
+        - Policy
+      summary: Create or update an authorization policy
+      description: |
+        Define authorization rules. These are evaluated at Stage 0 (B.A.S.E. pre-classifier)
+        and short-circuit the full waterfall if matched.
+      operationId: createPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizationPolicy'
+      responses:
+        "201":
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationPolicy'
+
+  /agents/{agentId}:
+    get:
+      tags:
+        - Agent Registry
+      summary: Look up agent in UTP registry
+      description: Get trust status, operator, certifications, and history for an agent
+      operationId: getAgent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRegistryRecord'
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    AuthorizationRequest:
+      type: object
+      required:
+        - domain
+        - requestor
+        - dataSubject
+        - scope
+      properties:
+        domain:
+          type: string
+          enum: [FIN, HLT, LGL, TRV, INS, RET, EMP, TAX, EDU, GEN]
+          description: Regulated domain or industry
+        requestor:
+          type: object
+          required:
+            - agentId
+            - agentOperator
+            - requestorType
+          properties:
+            agentId:
+              type: string
+              description: Unique identifier for the requesting agent
+            agentVersion:
+              type: string
+              description: Version of the agent software
+            agentOperator:
+              type: string
+              description: Email/identifier of the company/person operating the agent
+            humanPrincipal:
+              type: string
+              description: Email of the human who authorized this agent action
+            requestorType:
+              type: string
+              enum: [agent, human, system]
+              description: Is this request from an autonomous agent, human, or system?
+        dataSubject:
+          type: object
+          required:
+            - subjectId
+            - subjectType
+          properties:
+            subjectId:
+              type: string
+              description: Identifier for the data subject (customer ID, patient ID, etc.)
+            subjectType:
+              type: string
+              enum: [individual, organization, account]
+            consentProof:
+              type: string
+              description: Optional reference to proof of consent (e.g., JWT token)
+        scope:
+          type: object
+          required:
+            - dataElements
+            - actions
+          properties:
+            dataElements:
+              type: array
+              items:
+                type: string
+              description: Specific data fields requested (e.g., [transaction_date, amount, merchant_category])
+            actions:
+              type: array
+              items:
+                type: string
+              description: Specific actions authorized (e.g., [READ, QUERY, WRITE])
+            duration:
+              type: object
+              properties:
+                durationDays:
+                  type: integer
+                  minimum: 1
+                  description: How many days to authorize access
+                customExpiry:
+                  type: string
+                  format: date-time
+                  description: Optional custom expiration time
+            requestsPerDay:
+              type: integer
+              description: Optional rate limit (requests per day)
+            readOnly:
+              type: boolean
+              description: Restrict to read-only access?
+        signals:
+          type: object
+          description: Domain-specific authorization signals (optional; helps improve confidence)
+          properties:
+            signal1:
+              type: string
+              description: Primary signal (e.g., MCC, service type)
+            signal2:
+              type: string
+              description: Secondary signal (e.g., ISO purpose code)
+            context:
+              type: string
+              description: Industry context (e.g., NAICS code)
+        metadata:
+          type: object
+          description: Additional metadata (e.g., purpose of access, compliance framework)
+          additionalProperties: true
+
+    AuthorizationResponse:
+      type: object
+      required:
+        - requestId
+        - decision
+        - signalQuality
+        - utpCode
+        - overallConfidence
+      properties:
+        requestId:
+          type: string
+          description: Unique identifier for this authorization request
+        decision:
+          type: string
+          enum: [approved, denied, escalated]
+        signalQuality:
+          type: string
+          enum: [ruled, rich, standard, degraded]
+        utpCode:
+          type: string
+          description: 6-segment UTP identity code (UTP-[DOMAIN]-[CONTEXT]-[S1]-[S2]-[ACTION])
+        overallConfidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Confidence score (0-100) from C.O.R.E. stage aggregator
+        authorizedActions:
+          type: array
+          items:
+            type: string
+          description: Actions explicitly authorized (may be subset of requested)
+        deniedActions:
+          type: array
+          items:
+            type: string
+          description: Actions denied
+        scope:
+          type: object
+          description: Authorized scope (may differ from requested scope)
+          properties:
+            dataElements:
+              type: array
+              items:
+                type: string
+            duration:
+              type: object
+              properties:
+                startsAt:
+                  type: string
+                  format: date-time
+                expiresAt:
+                  type: string
+                  format: date-time
+            readOnly:
+              type: boolean
+        enforcement:
+          type: object
+          description: Specific enforcement constraints
+          properties:
+            enforceStrictScope:
+              type: boolean
+              description: Strictly validate requests against authorized scope
+            maskSensitiveFields:
+              type: boolean
+              description: Mask sensitive PII/PHI in responses
+            escalateOnViolation:
+              type: boolean
+              description: Trigger alert if scope violated
+            requireHumanApproval:
+              type: boolean
+              description: Require human review before executing
+            escalationContacts:
+              type: array
+              items:
+                type: string
+        authorizationToken:
+          type: string
+          description: Signed JWT token encoding authorization (can be passed to API calls)
+        utAuthRecord:
+          $ref: '#/components/schemas/UTAuthRecord'
+        fallbackReason:
+          type: string
+          description: If escalated due to fallback, reason why
+        escalationId:
+          type: string
+          description: If escalated, unique ID for the escalation
+        escalationContacts:
+          type: array
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+              role:
+                type: string
+        humanReviewRequired:
+          type: boolean
+        humanReviewDeadline:
+          type: string
+          format: date-time
+        auditLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+
+    UTAuthRecord:
+      type: object
+      description: Complete UTP Authorization Record (UTAuth) with full audit trail
+      properties:
+        orchestratorId:
+          type: string
+        orchestratorVersion:
+          type: string
+        authorizationTimestamp:
+          type: string
+          format: date-time
+        cryptographicHash:
+          type: string
+        decision:
+          type: string
+          enum: [approved, denied, escalated]
+        signalQuality:
+          type: string
+        stageResolved:
+          type: integer
+        overallConfidence:
+          type: integer
+        base:
+          $ref: '#/components/schemas/StageBlock'
+        s1e:
+          $ref: '#/components/schemas/StageBlock'
+        s2e:
+          $ref: '#/components/schemas/StageBlock'
+        ice:
+          $ref: '#/components/schemas/StageBlock'
+        mde:
+          $ref: '#/components/schemas/StageBlock'
+        hpe:
+          $ref: '#/components/schemas/StageBlock'
+        ca:
+          $ref: '#/components/schemas/StageBlock'
+        dr:
+          $ref: '#/components/schemas/StageBlock'
+        fbh:
+          $ref: '#/components/schemas/StageBlock'
+
+    StageBlock:
+      type: object
+      description: Output from a single stage evaluator
+      properties:
+        stage:
+          type: integer
+        stageName:
+          type: string
+        signalFound:
+          type: boolean
+        confidence:
+          type: integer
+        executionMs:
+          type: integer
+
+    AuthorizationPolicy:
+      type: object
+      required:
+        - policyName
+        - policyType
+      properties:
+        policyId:
+          type: string
+        policyName:
+          type: string
+        policyType:
+          type: string
+          enum: [allow, deny, masking, escalation]
+        domain:
+          type: string
+        conditions:
+          type: object
+          description: Conditions that trigger this policy
+          additionalProperties: true
+        action:
+          type: object
+          description: Action to take when conditions match
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AgentRegistryRecord:
+      type: object
+      properties:
+        agentId:
+          type: string
+        agentName:
+          type: string
+        agentOperator:
+          type: string
+        trustLevel:
+          type: string
+          enum: [verified, provisioned, untrusted, suspended]
+        certifications:
+          type: array
+          items:
+            type: string
+        riskScore:
+          type: integer
+        authorizationHistory:
+          type: object
+          properties:
+            totalRequests:
+              type: integer
+            approvedRequests:
+              type: integer
+            deniedRequests:
+              type: integer
+            escalatedRequests:
+              type: integer
+            averageConfidence:
+              type: integer
+
+    AuditLogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        event:
+          type: string
+          enum: [AUTHORIZATION_REQUESTED, STAGES_EVALUATED, DECISION_RENDERED, POLICY_APPLIED, ESCALATION_TRIGGERED]
+        actor:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum: [INVALID_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, RATE_LIMIT_EXCEEDED, INTERNAL_SERVER_ERROR]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          description: Trace ID for debugging
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []

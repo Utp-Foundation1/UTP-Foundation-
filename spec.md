@@ -1,4 +1,4 @@
-# Universal Transfer Protocol (UTP) — Specification v1.0
+# Universal Transfer Protocol (UTP)  Specification v1.0
 
 **Open Framework for Bounded Agent Authorization**
 

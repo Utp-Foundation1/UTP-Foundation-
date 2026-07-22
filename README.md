@@ -317,7 +317,8 @@ UTP doesn't prevent it; it *records it*. If an agent exceeds its authorized scop
 
 ### Is UTP ready for production?
 
-Yes. iCOA's financial implementation has been production-tested with 45M+ transactions. Deploy the reference Gateway and adapt for your domain.
+The framework is designed for production use. Currently in active development.
+. Deploy the reference Gateway and adapt for your domain.
 
 ### Can UTP work with open-source or untrusted agents?
 

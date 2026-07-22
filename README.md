@@ -54,7 +54,8 @@ AI agents don't behave that way. An agent's understanding of what it's allowed t
 
 ### 1. Read the Specification
 
-Start here: [Full UTP Specification v1.0](./SPEC.md)
+Start here:Start here: [Full UTP Specification v1.0](./spec.md)
+d)
 
 Takes ~30 minutes to understand the core concepts.
 

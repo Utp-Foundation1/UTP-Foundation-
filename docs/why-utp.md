@@ -252,7 +252,8 @@ Instead, we open-sourced it because:
 
 This specification originated from iCOA Labs, which built and operates the first production implementation of UTP in financial transaction classification (45M+ transactions, millions of dollars in advisory relationships).
 
-We proved the concept works with real data in a regulated domain. Now we're sharing it.
+The framework is ready for community input and pilot testing.
+
 
 ---
 
